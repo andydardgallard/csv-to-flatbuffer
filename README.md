@@ -44,7 +44,7 @@ flatc compiler (optional, build script handles it)
 
 ## ▶️ Usage
 
-# Convert CSV to FlatBuffer
+### Convert CSV to FlatBuffer
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -52,7 +52,7 @@ cargo run --release -- \
   -t 8
 ```
 
-# Convert + Read + Resample
+### Convert + Read + Resample
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -78,7 +78,7 @@ cargo run --release -- \
 
 ---
 
-##📄 Input CSV Format
+## 📄 Input CSV Format
 
 The tool expects CSV files with the following header and format :
 <DATE>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>
