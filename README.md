@@ -50,6 +50,7 @@ cargo run --release -- \
   -i /path/to/csv/dir \
   -o /path/to/output.bin \
   -t 8
+```
 
 # Convert + Read + Resample
 ```bash
@@ -59,6 +60,7 @@ cargo run --release -- \
   -t 8 \
   -c \
   -r 5min
+```
 
 ---
 
