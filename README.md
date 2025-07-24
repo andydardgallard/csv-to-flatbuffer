@@ -81,19 +81,29 @@ cargo run --release -- \
 ## 📄 Input CSV Format
 
 The tool expects CSV files with the following header and format :
+
 <DATE>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>
+
 20240912,100000,90300,90340,90250,90321,516
+
 20240912,100100,90318,90401,90302,90380,165
+
 20240912,100200,90380,90380,90325,90330,72
+
 20240912,100300,90338,90371,90309,90315,126
+
 20240912,100400,90326,90373,90317,90346,109
 
 Where:
 
 <DATE>: YYYYMMDD (e.g., 20240912)
+
 <TIME>: HHMMSS (e.g., 100000)
+
 <OPEN>, <HIGH>, <LOW>, <CLOSE>: f64 prices
+
 <VOL>: u64 volume
+
  ⚠️ Files must have headers. No extra columns or comments. 
 
 ---
@@ -101,13 +111,17 @@ Where:
 ## 🗂 File Structure
 
 After conversion:
+
 output.bin       ← FlatBuffer binary (OHLCVList)
+
 output.idx       ← Bincode-serialized FullIndex
 
 .idx contains:
 
 time_index: [timestamp, index] for every bar
+
 daily_index: [date, start_index, end_index]
+
 timeframe_index: [timestamps] for every N-minute bar
 
 ---
@@ -115,9 +129,11 @@ timeframe_index: [timestamps] for every N-minute bar
 ## 🧪 Example Output
 
 📄 Read first 5 OHLCV entries
+
  - ts: 20231214 090000, open: 90302.00, high: 90399.00, low: 90120.00, close: 90265.00, vol: 1320
  - ts: 20231214 090100, open: 90252.00, high: 90255.00, low: 90224.00, close: 90234.00, vol: 154
  ...
+ 
 ✅ Reading files complete in 0.05 seconds
 
 ---
@@ -125,8 +141,11 @@ timeframe_index: [timestamps] for every N-minute bar
 ## 📈 Why FlatBuffers?
 
 ✅ Zero-copy deserialization : Access data directly from memory
+
 ✅ Schema evolution : Safe versioning
+
 ✅ Cross-language : Use .bin files in Python, C++, JS, etc.
+
 ✅ Compact & fast : Ideal for large datasets
 
 ---
@@ -136,12 +155,17 @@ timeframe_index: [timestamps] for every N-minute bar
 Use .bin + .idx files in your event-driven backtester:
 
 Load only needed days
+
 Resample on-demand
+
 Ultra-low-latency bar updates
- Future roadmap:
+
+Future roadmap:
 
 Columnar storage
+
 SIMD aggregation
+
 WebSocket live feed support
 
 ---
