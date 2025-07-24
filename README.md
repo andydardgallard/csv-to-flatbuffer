@@ -82,7 +82,7 @@ cargo run --release -- \
 
 The tool expects CSV files with the following header and format :
 
-<DATE>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>
+DATE,TIME,OPEN,HIGH,LOW,CLOSE,VOL
 
 20240912,100000,90300,90340,90250,90321,516
 
@@ -96,13 +96,13 @@ The tool expects CSV files with the following header and format :
 
 Where:
 
-<DATE>: YYYYMMDD (e.g., 20240912)
+DATE: YYYYMMDD (e.g., 20240912)
 
-<TIME>: HHMMSS (e.g., 100000)
+TIME: HHMMSS (e.g., 100000)
 
-<OPEN>, <HIGH>, <LOW>, <CLOSE>: f64 prices
+OPEN, HIGH, LOW, CLOSE: f64 prices
 
-<VOL>: u64 volume
+VOL: u64 volume
 
  ⚠️ Files must have headers. No extra columns or comments. 
 
@@ -160,7 +160,9 @@ Resample on-demand
 
 Ultra-low-latency bar updates
 
-Future roadmap:
+---
+
+## Future roadmap:
 
 Columnar storage
 
