@@ -31,6 +31,7 @@ Ideal for building **event-driven backtesters** and **low-latency trading system
 git clone https://github.com/yourname/csv-to-flatbuffer.git
 cd csv-to-flatbuffer
 cargo build --release
+```
 
 ---
 
