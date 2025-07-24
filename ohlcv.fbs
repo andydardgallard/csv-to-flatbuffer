@@ -1,0 +1,42 @@
+// Defines the schema for serializing/deserializing OHLCV data using FlatBuffers.
+//
+// This file describes two tables:
+// 1. `OHLCV` - A single bar of market data
+// 2. `OHLCVList` - A container holding a vector of `OHLCV` bars
+//
+// The generated Rust code allows zero-copy reading of binary `.bin` files.
+
+// Single OHLCV bar with timestamp and price/volume data.
+table OHLCV {
+    // Unix timestamp in seconds (e.g., 1717029200)
+    timestamp: ulong;
+
+    // Open price at the start of the bar
+    open: double;
+
+    // Highest price during the bar
+    high: double;
+
+    // Lowest price during the bar
+    low: double;
+
+    // Closing price at the end of the bar
+    close: double;
+
+    // Trading volume during the bar
+    volume: ulong;
+}
+
+// Container table that holds a list of OHLCV bars.
+table OHLCVList {
+    // Vector of OHLCV bars (zero-copy access via FlatBuffers API)
+    items: [OHLCV];
+}
+
+// Specifies that `OHLCVList` is the root type of the FlatBuffer binary file.
+// This tells `flatc` what top-level object to expect when reading the file.
+root_type OHLCVList;
+
+// Sets the default file extension for generated binary files.
+// Used when saving FlatBuffer data to disk.
+file_extension "bin";
