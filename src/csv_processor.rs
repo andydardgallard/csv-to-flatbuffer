@@ -1,7 +1,12 @@
+use crate::cli;
 use crate::index;
 use crate::ohlcv_generated;
+use crate::ohlcv_soa_generated;
 
 /// Represents a single record from input CSV.
+/// 
+/// This struct maps the columns of the input CSV file using serde attributes.
+/// The expected CSV format is: <DATE>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CsvRecord {
     #[serde(rename = "<DATE>")]
@@ -21,6 +26,9 @@ pub struct CsvRecord {
 }
 
 /// Intermediate processed record with timestamp.
+/// 
+/// This struct holds OHLCV data after parsing the datetime string into a Unix timestamp.
+/// It's used to accumulate raw data before FlatBuffer creation, facilitating both AOS and SOA processing.
 #[derive(Debug, serde::Serialize)]
 pub struct ProcessedRecord {
     timestamp: u64,
@@ -53,23 +61,103 @@ pub struct ProcessedData {
     pub timeframe_index: std::collections::HashMap<String, Vec<u64>>,
 }
 
-/// Processes CSV records and builds FlatBuffers OHLCV entries with indexing.
+// --- SOA Builder Implementation ---
+// The SOABuilder struct and its implementation handle the creation of FlatBuffer data
+// in the Structure of Arrays (SOA) format.
+
+/// A builder for creating FlatBuffer data in Structure of Arrays (SOA) format.
+/// 
+/// This struct accumulates OHLCV data into separate vectors for each field
+/// before finalizing the FlatBuffer binary representation.
+struct SOABuilder<'a> {
+    builder: flatbuffers::FlatBufferBuilder<'a>,
+    timestamps: Vec<u64>,
+    opens: Vec<f64>,
+    highs: Vec<f64>,
+    lows: Vec<f64>,
+    closes: Vec<f64>,
+    volumes: Vec<u64>,
+}
+
+impl<'a> SOABuilder<'a> {
+    /// Creates a new `SOABuilder` with an initial buffer capacity.
+    pub fn new() -> Self {
+        Self {
+            builder: flatbuffers::FlatBufferBuilder::with_capacity(1024 * 1024),
+            timestamps: Vec::new(),
+            opens: Vec::new(),
+            highs: Vec::new(),
+            lows: Vec::new(),
+            closes: Vec::new(),
+            volumes: Vec::new(),
+        }
+    }
+
+    /// Adds a single OHLCV record to the builder's internal vectors.
+    pub fn add_ohlcv(&mut self, timestamp: u64, open: f64, high: f64, low: f64, close: f64, volume: u64) {
+        self.timestamps.push(timestamp);
+        self.opens.push(open);
+        self.highs.push(high);
+        self.lows.push(low);
+        self.closes.push(close);
+        self.volumes.push(volume);
+    }
+
+    /// Finalizes the FlatBuffer data by creating the SOA structure and returning the binary vector.
+    /// 
+    /// This method takes ownership of `self`, constructs the FlatBuffer objects for the SOA layout,
+    /// and returns the final binary representation.
+    pub fn finish_buffer(self) -> Vec<u8> {
+        // Destructure `self` to get access to the builder and the accumulated vectors
+        let Self { mut builder, timestamps, opens, highs, lows, closes, volumes } = self;
+
+        // Create FlatBuffer vectors from the accumulated data
+        let timestamps_vec = builder.create_vector(&timestamps);
+        let opens_vec = builder.create_vector(&opens);
+        let highs_vec = builder.create_vector(&highs);
+        let lows_vec = builder.create_vector(&lows);
+        let closes_vec = builder.create_vector(&closes);
+        let volumes_vec = builder.create_vector(&volumes);
+
+        // Build the OHLCVSOa object containing the separate vectors
+        let ohlcv_soa = {
+            let mut ohlcv_soa_builder = ohlcv_soa_generated::OHLCVSOABuilder::new(&mut builder);
+            ohlcv_soa_builder.add_timestamps(timestamps_vec);
+            ohlcv_soa_builder.add_opens(opens_vec);
+            ohlcv_soa_builder.add_highs(highs_vec);
+            ohlcv_soa_builder.add_lows(lows_vec);
+            ohlcv_soa_builder.add_closes(closes_vec);
+            ohlcv_soa_builder.add_volumes(volumes_vec);
+            ohlcv_soa_builder.finish()
+        };
+
+        // Build the root OHLCVListSOa object containing the OHLCVSOa
+        let ohlcv_list_soa = {
+            let mut list_builder = ohlcv_soa_generated::OHLCVListSOABuilder::new(&mut builder);
+            list_builder.add_data(ohlcv_soa);
+            list_builder.finish()
+        };
+
+        builder.finish(ohlcv_list_soa, None);
+        builder.finished_data().to_vec()
+    }
+}
+
+// --- /SOA Builder Implementation ---
+
+/// Processes CSV records, accumulates raw data, and builds index structures.
 ///
-/// This function:
-/// 1. Reads OHLCV records from a CSV reader.
-/// 2. Parses datetime strings into Unix timestamps.
-/// 3. Creates FlatBuffers OHLCV objects using the provided builder.
-/// 4. Tracks time-based indices for fast lookup and resampling.
-/// 5. Builds daily index entries for efficient day-based navigation.
-/// 6. Maintains a map of supported timeframe timestamps for future resampling.
+/// This function reads OHLCV records from a CSV reader, parses datetime strings
+/// into Unix timestamps, and populates index collections (time, daily, timeframe).
+/// Crucially, it now accumulates the raw OHLCV data into a `Vec<ProcessedRecord>`,
+/// which is then used by `save_flatbuffer` to create either AOS or SOA FlatBuffers.
 ///
 /// # Arguments
 /// * `reader` - CSV reader for input data.
-/// * `builder` - FlatBufferBuilder to create OHLCV objects.
-/// * `time_index` - Output vector to store timestamp-to-offset mappings.
+/// * `time_index` - Output vector to store timestamp-to-index mappings.
 /// * `daily_index` - Output vector to store daily OHLCV ranges.
 /// * `tf_index_map` - Output map to store timeframe-specific timestamps.
-/// * `ohlcv_offsets` - Output vector to store FlatBuffer offsets for created OHLCVs.
+/// * `raw_data` - Output vector to store raw ProcessedRecord data for FlatBuffer creation.
 ///
 /// # Returns
 /// * `anyhow::Result<()>` - Success or an error if processing fails.
@@ -77,18 +165,16 @@ pub struct ProcessedData {
 /// # Errors
 /// * If datetime parsing fails.
 /// * If CSV deserialization fails.
-fn process_csv_records<'a, R: std::io::Read>(
+fn process_csv_records<R: std::io::Read>(
     reader: &mut csv::Reader<R>,
-    builder: &mut flatbuffers::FlatBufferBuilder<'a>,
     time_index: &mut Vec<index::TimeIndexEntry>,
     daily_index: &mut Vec<index::DailyIndexEntry>,
     tf_index_map: &mut std::collections::HashMap<String, Vec<u64>>,
-    ohlcv_offsets: &mut Vec<flatbuffers::WIPOffset<ohlcv_generated::OHLCV<'a>>>
+    raw_data: &mut Vec<ProcessedRecord>
 ) -> anyhow::Result<()> {
     let mut index_in_vector = 0u64;
     let mut current_day = None::<String>;
     let mut day_start_index = 0u64;
-
     let supported_timeframes = vec![
         ("1m", 60),
         ("2m", 120),
@@ -102,22 +188,19 @@ fn process_csv_records<'a, R: std::io::Read>(
         let date_str = &record.date;
         let time_str = &record.time;
         let dt_str = format!("{} {}", date_str, time_str);
-        
         let dt = chrono::NaiveDateTime::parse_from_str(&dt_str, "%Y%m%d %H%M%S")
         .map_err(|e| anyhow::anyhow!("Failed to parse datetime: {}", e))?;
         let timestamp = dt.and_utc().timestamp() as u64;
         
-        let ohlcv_args = ohlcv_generated::OHLCVArgs {
+        let processed_record = ProcessedRecord {
             timestamp,
             open: record.open,
             high: record.high,
             low: record.low,
             close: record.close,
-            volume: record.vol,
+            vol: record.vol,
         };
-    
-        let ohlcv = ohlcv_generated::OHLCV::create(builder, &ohlcv_args);
-        ohlcv_offsets.push(ohlcv);
+        raw_data.push(processed_record);
         
         // index by time
         time_index.push(index::TimeIndexEntry {
@@ -169,18 +252,20 @@ fn process_csv_records<'a, R: std::io::Read>(
     anyhow::Ok(())
 }
     
-/// Converts CSV data to a FlatBuffer binary file (.bin) and generates index data.
+/// Converts CSV data to a FlatBuffer binary file (.bin) in AOS or SOA format and generates index data.
 ///
-/// This function orchestrates the conversion process:
+/// This function orchestrates the conversion process based on the specified `storage_format`:
 /// 1. Opens and reads the input CSV file.
-/// 2. Initializes a FlatBufferBuilder and index collections.
-/// 3. Calls `process_csv_records` to populate the builder and indices.
-/// 4. Finalizes the FlatBuffer and writes the binary data to the output file.
-/// 5. Packages the generated index data for later use.
+/// 2. Initializes index collections.
+/// 3. Calls `process_csv_records` to accumulate raw data and populate indices.
+/// 4. Based on `storage_format`, creates the FlatBuffer data (either AOS or SOA).
+/// 5. Writes the binary FlatBuffer data to the output file.
+/// 6. Packages the generated index data for later use.
 ///
 /// # Arguments
 /// * `input_dir_path` - Path to the input CSV file.
 /// * `output_path` - Path for the output .bin file.
+/// * `storage_format` - The desired FlatBuffer storage format (AOS or SOA).
 ///
 /// # Returns
 /// * `anyhow::Result<ProcessedData>` - The generated index data or an error.
@@ -191,34 +276,75 @@ fn process_csv_records<'a, R: std::io::Read>(
 fn save_flatbuffer<P: AsRef<std::path::Path>>(
     input_dir_path: P,
     output_path: P,
+    storage_format: cli::StorageFormat,
 ) -> anyhow::Result<ProcessedData> {
     let input_file = std::fs::File::open(input_dir_path)?;
     let mut reader = csv::ReaderBuilder::new().has_headers(true).from_reader(input_file);  
     
-    let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024 * 1024);
     let mut time_index: Vec<index::TimeIndexEntry> = Vec::new();
     let mut daily_index: Vec<index::DailyIndexEntry> = Vec::new();
     let mut tf_index_map: std::collections::HashMap<String, Vec<u64>> = std::collections::HashMap::new();
-    let mut ohlcv_offsets = Vec::new();
+    let mut raw_data = Vec::new();
 
+    // Accumulate raw data and indices
     process_csv_records(
         &mut reader,
-        &mut builder,
         &mut time_index,
         &mut daily_index,
         &mut tf_index_map,
-        &mut ohlcv_offsets,
+        &mut raw_data,
     )?;
 
-    let items = builder.create_vector(&ohlcv_offsets);
-    let ohlcv_list = {
-        let mut list_builder = ohlcv_generated::OHLCVListBuilder::new(&mut builder);
-        list_builder.add_items(items);
-        list_builder.finish()
-    };
-    builder.finish(ohlcv_list, None);
-    std::fs::write(output_path.as_ref(), builder.finished_data())?;
+    // --- Create FlatBuffer Data based on Storage Format ---
+    let flatbuffer_data = match storage_format {
+        cli::StorageFormat::Aos => {
+            // --- AOS Logic ---
+            let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024 * 1024);
+            let mut ohlcv_offsets = Vec::with_capacity(raw_data.len());
+            for record in &raw_data {
+                let ohlcv_args = ohlcv_generated::OHLCVArgs {
+                    timestamp: record.timestamp,
+                    open: record.open,
+                    high: record.high,
+                    low: record.low,
+                    close: record.close,
+                    volume: record.vol,
+                };
+                let ohlcv = ohlcv_generated::OHLCV::create(&mut builder, &ohlcv_args);
+                ohlcv_offsets.push(ohlcv);
+            }
 
+            let items = builder.create_vector(&ohlcv_offsets);
+            let ohlcv_list = {
+                let mut list_builder = ohlcv_generated::OHLCVListBuilder::new(&mut builder);
+                list_builder.add_items(items);
+                list_builder.finish()
+            };
+            builder.finish(ohlcv_list, None);
+            builder.finished_data().to_vec()
+        }
+        cli::StorageFormat::Soa => {
+            // --- SOA Logic ---
+            let mut soa_builder = SOABuilder::new();
+            for record in &raw_data {
+                soa_builder.add_ohlcv(
+                    record.timestamp,
+                    record.open,
+                    record.high,
+                    record.low,
+                    record.close,
+                    record.vol
+                );
+            }
+            soa_builder.finish_buffer()
+        }
+    };
+    // --- /Create FlatBuffer Data ---
+
+    // Write the generated FlatBuffer binary data to the output file
+    std::fs::write(output_path.as_ref(), flatbuffer_data)?;
+
+    // Package the generated index data
     let processed_data = ProcessedData{
         time_index: time_index,
         daily_index: daily_index,
@@ -269,23 +395,25 @@ fn save_index<P: AsRef<std::path::Path>>(
 /// Public entry point to convert a CSV file to FlatBuffer format with indexing.
 ///
 /// This function provides a high-level interface for the conversion process.
-/// It delegates to `save_flatbuffer` for the core logic and `save_index` for
-/// persisting the generated indices. It's designed to be called from `main.rs`
+/// It delegates to `save_flatbuffer` for the core logic (reading CSV, creating FlatBuffer based on format)
+/// and `save_index` for persisting the generated indices. It's designed to be called from `main.rs`
 /// or other modules needing to trigger the conversion.
 ///
 /// # Arguments
 /// * `input_dir_path` - Path to the input CSV file.
-/// * `output_path` - Path for the output .bin file.
+/// * `output_path` - Path for the output .bin file (e.g., filename.aos.bin or filename.soa.bin).
+/// * `storage_format` - The desired FlatBuffer storage format (AOS or SOA).
 ///
 /// # Returns
 /// * `anyhow::Result<()>` - Success or an error if conversion or saving fails.
 ///
 /// # Errors
 /// * Propagates errors from `save_flatbuffer` or `save_index`.
-pub fn convert_csv_to_flatbuffer<P: AsRef<std::path::Path>>(input_dir_path: P, output_path: P) -> anyhow::Result<()> {
+pub fn convert_csv_to_flatbuffer<P: AsRef<std::path::Path>>(input_dir_path: P, output_path: P, storage_format: cli::StorageFormat) -> anyhow::Result<()> {
     let processed_data = save_flatbuffer(
         input_dir_path.as_ref(),
         output_path.as_ref(),
+        storage_format,
     )?;
     save_index(
         &processed_data.time_index,

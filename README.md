@@ -8,6 +8,7 @@ Supports:
 - ✅ Resampling to 1/2/3/4/5min, 1d
 - ✅ Fast random access via `.idx` index
 - ✅ Human-readable output with timestamp formatting
+- ✅ Configurable storage format (AOS or SOA)
 
 Ideal for building **event-driven backtesters** and **low-latency trading systems**.
 
@@ -20,6 +21,7 @@ Ideal for building **event-driven backtesters** and **low-latency trading system
 | ⚡ Speed | Uses `mmap`, `rayon`, and FlatBuffers for zero-copy processing |
 | 🔍 Indexing | Generates `.idx` file with per-second and per-day access |
 | 🧮 Resampling | Convert 1-minute data to 5min/daily without loading all data |
+| 🧩 Storage Format | Choose between Array of Structures (AOS) and Structure of Arrays (SOA) |
 | 📁 Batch Support | Processes entire directories of CSV files |
 | 🖥️ Cross-platform | Works on Linux, macOS, Windows |
 
@@ -43,19 +45,39 @@ flatc compiler (optional, build script handles it)
 
 ## ▶️ Usage
 
-# Convert CSV to FlatBuffer
-```bash
-cargo run --release -- \
-  -i /path/to/csv/dir \
-  -o /path/to/output.bin \
-  -t 8
-
-# Convert + Read + Resample
+# Convert CSV to FlatBuffer (AOS format)
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
   -o /path/to/output.bin \
   -t 8 \
+  --storage-format aos
+
+# Convert CSV to FlatBuffer (SOA format)
+```bash
+cargo run --release -- \
+  -i /path/to/csv/dir \
+  -o /path/to/output.bin \
+  -t 8 \
+  --storage-format soa
+
+# Convert + Read + Resample (AOS)
+```bash
+cargo run --release -- \
+  -i /path/to/csv/dir \
+  -o /path/to/output.bin \
+  -t 8 \
+  --storage-format aos \
+  -c \
+  -r 5min
+
+# Convert + Read + Resample (SOA)
+```bash
+cargo run --release -- \
+  -i /path/to/csv/dir \
+  -o /path/to/output.bin \
+  -t 8 \
+  --storage-format soa \
   -c \
   -r 5min
 
@@ -70,8 +92,11 @@ cargo run --release -- \
 | -t, --threads | Number of threads (default: all cores) |
 | -c, --check | After conversion, read and print first 5 bars |
 | -r, --resample | Resample to: 1min, 2min, 3min, 4min, 5min, 1d (requires -c) |
+| -s, --storage-format | Storage format for FlatBuffer data: aos (default) or soa |
 
 💡 Example: -r 5min aggregates 1-minute bars into 5-minute candles. 
+
+💡 Example: --storage-format soa uses Structure of Arrays for potentially faster read/resample performance.
 
 ---
 
@@ -98,8 +123,11 @@ Where:
 ## 🗂 File Structure
 
 After conversion:
-output.bin       ← FlatBuffer binary (OHLCVList)
-output.idx       ← Bincode-serialized FullIndex
+output/
+├── filename.aos.bin  ← FlatBuffer binary (OHLCVList) - AOS format
+├── filename.aos.idx  ← Bincode-serialized FullIndex
+├── filename.soa.bin  ← FlatBuffer binary (OHLCVListSOA) - SOA format
+└── filename.soa.idx  ← Bincode-serialized FullIndex
 
 .idx contains:
 
@@ -111,11 +139,21 @@ timeframe_index: [timestamps] for every N-minute bar
 
 ## 🧪 Example Output
 
-📄 Read first 5 OHLCV entries
+### AOS Format
+
+📄 Read first 5 1min bars (AOS)
  - ts: 20231214 090000, open: 90302.00, high: 90399.00, low: 90120.00, close: 90265.00, vol: 1320
  - ts: 20231214 090100, open: 90252.00, high: 90255.00, low: 90224.00, close: 90234.00, vol: 154
  ...
-✅ Reading files complete in 0.05 seconds
+✅ Resampling completed in 0.030 seconds
+
+### SOA Format
+
+📄 Read first 5 1min bars (SOA)
+ - ts: 20231214 090000, open: 90302.00, high: 90399.00, low: 90120.00, close: 90265.00, vol: 1320
+ - ts: 20231214 090100, open: 90252.00, high: 90255.00, low: 90224.00, close: 90234.00, vol: 154
+ ...
+✅ Resampling completed in 0.0001 seconds
 
 ---
 
@@ -125,6 +163,7 @@ timeframe_index: [timestamps] for every N-minute bar
 ✅ Schema evolution : Safe versioning
 ✅ Cross-language : Use .bin files in Python, C++, JS, etc.
 ✅ Compact & fast : Ideal for large datasets
+✅ AOS/SOA flexibility : Choose storage layout for optimal performance
 
 ---
 
@@ -133,13 +172,8 @@ timeframe_index: [timestamps] for every N-minute bar
 Use .bin + .idx files in your event-driven backtester:
 
 Load only needed days
-Resample on-demand
+Resample on-demand (AOS or SOA)
 Ultra-low-latency bar updates
- Future roadmap:
-
-Columnar storage
-SIMD aggregation
-WebSocket live feed support
 
 ---
 

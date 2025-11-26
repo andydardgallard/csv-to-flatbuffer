@@ -1,0 +1,44 @@
+// ohlcv_soa.fbs
+
+// Defines the schema for serializing/deserializing OHLCV data using FlatBuffers in SOA (Structure of Arrays) format.
+//
+// This file describes two tables:
+// 1. `OHLCVSOA` - A container holding separate vectors for each OHLCV field.
+// 2. `OHLCVListSOA` - A container holding a single `OHLCVSOA` object.
+//
+// The generated Rust code allows zero-copy reading of binary `.bin` files.
+// Container table holding separate arrays for each OHLCV field.
+table OHLCVSOA {
+    // Unix timestamp in seconds (e.g., 1717029200)
+    // Vector of u64 values
+    timestamps: [ulong];
+    // Open prices
+    // Vector of f64 values
+    opens: [double];
+    // Highest prices
+    // Vector of f64 values
+    highs: [double];
+    // Lowest prices
+    // Vector of f64 values
+    lows: [double];
+    // Closing prices
+    // Vector of f64 values
+    closes: [double];
+    // Trading volumes
+    // Vector of u64 values
+    volumes: [ulong];
+}
+
+// Container table that holds a single `OHLCVSOA` object.
+table OHLCVListSOA {
+    // Single OHLCVSOA object (zero-copy access via FlatBuffers API)
+    data: OHLCVSOA;
+}
+
+// Specifies that `OHLCVListSOA` is the root type of the FlatBuffer binary file.
+// This tells `flatc` what top-level object to expect when reading the file.
+root_type OHLCVListSOA;
+
+// Sets the default file extension for generated binary files.
+// Used when saving FlatBuffer data to disk.
+file_extension "bin";

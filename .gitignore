@@ -28,7 +28,6 @@
 # Documentation
  doc/
  docs/
- *.md.tmp
 
 # Build scripts
  build/

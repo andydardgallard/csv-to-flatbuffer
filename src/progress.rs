@@ -1,5 +1,7 @@
-use crate::file_processing;
+use crate::cli;
 use crate::csv_processor;
+use crate::file_processing;
+
 use rayon::prelude::*;
 
 /// Processes each CSV file in parallel, converting to Parquet with progress tracking.
@@ -10,7 +12,7 @@ use rayon::prelude::*;
 ///
 /// # Returns
 /// * `Result<()>` - Success or error if any conversion fails.
-pub fn process_files<P: AsRef<std::path::Path> + std::marker::Sync>(csv_path: P, out_dir_path: P) -> anyhow::Result<()> {
+pub fn process_files<P: AsRef<std::path::Path> + std::marker::Sync>(csv_path: P, out_dir_path: P, storage_format: cli::StorageFormat) -> anyhow::Result<()> {
     let files_list: Vec<String> = file_processing::get_list_files_in_dir(&csv_path, Some("txt"))?;
     println!("📂 Found {} file(s) to convert", files_list.len());
 
@@ -31,11 +33,18 @@ pub fn process_files<P: AsRef<std::path::Path> + std::marker::Sync>(csv_path: P,
             Some(stem) => stem.to_str().unwrap_or("output"),
             None => "output",
         };
-        let output_file_name = format!("{}.bin", file_stem);
+        let output_file_name = match storage_format {
+            cli::StorageFormat::Aos => {
+                format!("{}.aos.bin", file_stem)
+            }
+            cli::StorageFormat::Soa => {
+                format!("{}.soa.bin", file_stem)
+            }
+        };
         let output_path = out_dir_path.as_ref().join(output_file_name);
         let start = std::time::Instant::now();
 
-        match csv_processor::convert_csv_to_flatbuffer(input_path, &output_path) {
+        match csv_processor::convert_csv_to_flatbuffer(input_path, &output_path, storage_format.clone()) {
             Ok(_) => {
                 let duration = start.elapsed();
                 m.println(format!(
