@@ -33,6 +33,7 @@ Ideal for building **event-driven backtesters** and **low-latency trading system
 git clone https://github.com/yourname/csv-to-flatbuffer.git
 cd csv-to-flatbuffer
 cargo build --release
+```
 
 ---
 
@@ -45,7 +46,12 @@ flatc compiler (optional, build script handles it)
 
 ## ▶️ Usage
 
+<<<<<<< HEAD
 # Convert CSV to FlatBuffer (AOS format)
+=======
+### Convert CSV to FlatBuffer (AOS format)
+
+>>>>>>> main
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -53,7 +59,11 @@ cargo run --release -- \
   -t 8 \
   --storage-format aos
 
+<<<<<<< HEAD
 # Convert CSV to FlatBuffer (SOA format)
+=======
+### Convert CSV to FlatBuffer (SOA format)
+>>>>>>> main
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -61,13 +71,18 @@ cargo run --release -- \
   -t 8 \
   --storage-format soa
 
+<<<<<<< HEAD
 # Convert + Read + Resample (AOS)
+=======
+### Convert + Read + Resample (AOS)
+>>>>>>> main
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
   -o /path/to/output.bin \
   -t 8 \
   --storage-format aos \
+<<<<<<< HEAD
   -c \
   -r 5min
 
@@ -78,8 +93,21 @@ cargo run --release -- \
   -o /path/to/output.bin \
   -t 8 \
   --storage-format soa \
+=======
+>>>>>>> main
   -c \
   -r 5min
+
+### Convert + Read + Resample (SOA)
+```bash
+cargo run --release -- \
+  -i /path/to/csv/dir \
+  -o /path/to/output.bin \
+  -t 8 \
+  --storage-format soa \
+  -c \
+  -r 5min
+```
 
 ---
 
@@ -100,22 +128,32 @@ cargo run --release -- \
 
 ---
 
-##📄 Input CSV Format
+## 📄 Input CSV Format
 
 The tool expects CSV files with the following header and format :
-<DATE>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>
+
+DATE,TIME,OPEN,HIGH,LOW,CLOSE,VOL
+
 20240912,100000,90300,90340,90250,90321,516
+
 20240912,100100,90318,90401,90302,90380,165
+
 20240912,100200,90380,90380,90325,90330,72
+
 20240912,100300,90338,90371,90309,90315,126
+
 20240912,100400,90326,90373,90317,90346,109
 
 Where:
 
-<DATE>: YYYYMMDD (e.g., 20240912)
-<TIME>: HHMMSS (e.g., 100000)
-<OPEN>, <HIGH>, <LOW>, <CLOSE>: f64 prices
-<VOL>: u64 volume
+DATE: YYYYMMDD (e.g., 20240912)
+
+TIME: HHMMSS (e.g., 100000)
+
+OPEN, HIGH, LOW, CLOSE: f64 prices
+
+VOL: u64 volume
+
  ⚠️ Files must have headers. No extra columns or comments. 
 
 ---
@@ -123,16 +161,26 @@ Where:
 ## 🗂 File Structure
 
 After conversion:
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 output/
 ├── filename.aos.bin  ← FlatBuffer binary (OHLCVList) - AOS format
 ├── filename.aos.idx  ← Bincode-serialized FullIndex
 ├── filename.soa.bin  ← FlatBuffer binary (OHLCVListSOA) - SOA format
 └── filename.soa.idx  ← Bincode-serialized FullIndex
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 
 .idx contains:
 
 time_index: [timestamp, index] for every bar
+
 daily_index: [date, start_index, end_index]
+
 timeframe_index: [timestamps] for every N-minute bar
 
 ---
@@ -160,9 +208,14 @@ timeframe_index: [timestamps] for every N-minute bar
 ## 📈 Why FlatBuffers?
 
 ✅ Zero-copy deserialization : Access data directly from memory
+
 ✅ Schema evolution : Safe versioning
+
 ✅ Cross-language : Use .bin files in Python, C++, JS, etc.
+
 ✅ Compact & fast : Ideal for large datasets
+✅ AOS/SOA flexibility : Choose storage layout for optimal performance
+
 ✅ AOS/SOA flexibility : Choose storage layout for optimal performance
 
 ---
@@ -172,8 +225,11 @@ timeframe_index: [timestamps] for every N-minute bar
 Use .bin + .idx files in your event-driven backtester:
 
 Load only needed days
+<<<<<<< HEAD
 Resample on-demand (AOS or SOA)
 Ultra-low-latency bar updates
+=======
+>>>>>>> main
 
 ---
 
