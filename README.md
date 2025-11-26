@@ -46,19 +46,8 @@ flatc compiler (optional, build script handles it)
 
 ## ▶️ Usage
 
-<<<<<<< HEAD
-### Convert CSV to FlatBuffer
-```bash
-cargo run --release -- \
-  -i /path/to/csv/dir \
-  -o /path/to/output.bin \
-  -t 8
-```
+### Convert CSV to FlatBuffer (AOS format)
 
-### Convert + Read + Resample
-=======
-# Convert CSV to FlatBuffer (AOS format)
->>>>>>> 52d3fe7 (add SOA (Structure of Arrays) format)
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -66,7 +55,7 @@ cargo run --release -- \
   -t 8 \
   --storage-format aos
 
-# Convert CSV to FlatBuffer (SOA format)
+### Convert CSV to FlatBuffer (SOA format)
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -74,7 +63,7 @@ cargo run --release -- \
   -t 8 \
   --storage-format soa
 
-# Convert + Read + Resample (AOS)
+### Convert + Read + Resample (AOS)
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -84,7 +73,7 @@ cargo run --release -- \
   -c \
   -r 5min
 
-# Convert + Read + Resample (SOA)
+### Convert + Read + Resample (SOA)
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -147,18 +136,13 @@ VOL: u64 volume
 ## 🗂 File Structure
 
 After conversion:
-<<<<<<< HEAD
 
-output.bin       ← FlatBuffer binary (OHLCVList)
-
-output.idx       ← Bincode-serialized FullIndex
-=======
 output/
 ├── filename.aos.bin  ← FlatBuffer binary (OHLCVList) - AOS format
 ├── filename.aos.idx  ← Bincode-serialized FullIndex
 ├── filename.soa.bin  ← FlatBuffer binary (OHLCVListSOA) - SOA format
 └── filename.soa.idx  ← Bincode-serialized FullIndex
->>>>>>> 52d3fe7 (add SOA (Structure of Arrays) format)
+
 
 .idx contains:
 
@@ -172,15 +156,6 @@ timeframe_index: [timestamps] for every N-minute bar
 
 ## 🧪 Example Output
 
-<<<<<<< HEAD
-📄 Read first 5 OHLCV entries
-
- - ts: 20231214 090000, open: 90302.00, high: 90399.00, low: 90120.00, close: 90265.00, vol: 1320
- - ts: 20231214 090100, open: 90252.00, high: 90255.00, low: 90224.00, close: 90234.00, vol: 154
- ...
- 
-✅ Reading files complete in 0.05 seconds
-=======
 ### AOS Format
 
 📄 Read first 5 1min bars (AOS)
@@ -196,7 +171,6 @@ timeframe_index: [timestamps] for every N-minute bar
  - ts: 20231214 090100, open: 90252.00, high: 90255.00, low: 90224.00, close: 90234.00, vol: 154
  ...
 ✅ Resampling completed in 0.0001 seconds
->>>>>>> 52d3fe7 (add SOA (Structure of Arrays) format)
 
 ---
 
@@ -209,6 +183,7 @@ timeframe_index: [timestamps] for every N-minute bar
 ✅ Cross-language : Use .bin files in Python, C++, JS, etc.
 
 ✅ Compact & fast : Ideal for large datasets
+
 ✅ AOS/SOA flexibility : Choose storage layout for optimal performance
 
 ---
@@ -218,25 +193,6 @@ timeframe_index: [timestamps] for every N-minute bar
 Use .bin + .idx files in your event-driven backtester:
 
 Load only needed days
-<<<<<<< HEAD
-
-Resample on-demand
-
-Ultra-low-latency bar updates
-
----
-
-## Future roadmap:
-
-Columnar storage
-
-SIMD aggregation
-
-WebSocket live feed support
-=======
-Resample on-demand (AOS or SOA)
-Ultra-low-latency bar updates
->>>>>>> 52d3fe7 (add SOA (Structure of Arrays) format)
 
 ---
 
