@@ -20,4 +20,10 @@ fn main() {
         // Use default settings for all other options (e.g., language=rust, no suffix, etc.)
         ..Default::default()
     }).unwrap(); // Panic on failure — stops compilation if schema is invalid
+
+    flatc_rust::run(flatc_rust::Args {
+        inputs: &[std::path::Path::new("ohlcv_soa.fbs")],
+        out_dir: std::path::Path::new("src"),
+        ..Default::default()
+    }).unwrap();
 }

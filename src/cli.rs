@@ -1,4 +1,11 @@
 /// Structure representing command-line arguments.
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum StorageFormat {
+    Aos,
+    Soa
+}
+
 #[derive(Debug)]
 pub struct Args {
     pub input: std::path::PathBuf,
@@ -6,6 +13,7 @@ pub struct Args {
     pub threads: Option<usize>,
     pub check: bool,
     pub resample: Option<String>,
+    pub storage_format: StorageFormat,
 }
 
 /// Command-line arguments parser using Clap.
@@ -34,37 +42,46 @@ impl Args {
             )
             .arg(
                 clap::Arg::new("output")
-                .short('o')
-                .long("output")
-                .help("Path to output directory for flatbuffer files")
-                .required(true)
-                .num_args(1),
+                    .short('o')
+                    .long("output")
+                    .help("Path to output directory for flatbuffer files")
+                    .required(true)
+                    .num_args(1),
             )
             .arg(
                 clap::Arg::new("threads")
-                .short('t')
-                .long("threads")
-                .help("Number of threads to use (default: all available)")
-                .num_args(1)
-                .value_parser(clap::builder::ValueParser::new(parse_usize_positive)),
+                    .short('t')
+                    .long("threads")
+                    .help("Number of threads to use (default: all available)")
+                    .num_args(1)
+                    .value_parser(clap::builder::ValueParser::new(parse_usize_positive)),
             )
             .arg(
                 clap::Arg::new("check")
-                .short('c')
-                .long("check")
-                .help("After conversion, read .bin file and print first 5 rows as DataFrame")
-                .required(false)
-                .action(clap::ArgAction::SetTrue)
+                    .short('c')
+                    .long("check")
+                    .help("After conversion, read .bin file and print first 5 rows as DataFrame")
+                    .required(false)
+                    .action(clap::ArgAction::SetTrue)
             )
             .arg(
                 clap::Arg::new("resample")
-                .short('r')
-                .long("resample")
-                .help("Resample data to specified timeframe. Available: 1min, 2min, 3min, 4min, 5min, 1d")
-                .value_parser(["1min", "2min", "3min", "4min", "5min", "1d"])
-                .required(false)
-                .num_args(1)
-                .requires("check")
+                    .short('r')
+                    .long("resample")
+                    .help("Resample data to specified timeframe. Available: 1min, 2min, 3min, 4min, 5min, 1d")
+                    .value_parser(["1min", "2min", "3min", "4min", "5min", "1d"])
+                    .required(false)
+                    .num_args(1)
+                    .requires("check")
+            )
+            .arg(
+                clap::Arg::new("storage_format")
+                    .short('s')
+                    .long("storage_format")
+                    .help("Storage format for FlatBuffer data")
+                    .value_parser(clap::value_parser!(StorageFormat))
+                    .default_value("aos")
+                    .required(false)
             )
             .get_matches();
 
@@ -74,6 +91,7 @@ impl Args {
             threads: matches.get_one::<usize>("threads").cloned(),
             check: matches.get_flag("check"),
             resample: matches.get_one::<String>("resample").cloned(),
+            storage_format: matches.get_one::<StorageFormat>("storage_format").cloned().unwrap(),
         }
     }
 }

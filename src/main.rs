@@ -4,15 +4,21 @@
 #[allow(unsafe_op_in_unsafe_fn)]
 mod ohlcv_generated;
 
+#[allow(dead_code)]
+#[allow(unused_imports)]
+#[allow(clippy::all)]
+#[allow(unsafe_op_in_unsafe_fn)]
+mod ohlcv_soa_generated;
+
 // Minimal imports required for the main logic
 mod cli;
 mod utils;
 mod index;
 mod resample;
 mod progress;
+mod csv_processor;
 mod file_processing;
 mod read_flatbuffers;
-mod csv_processor;
 
 /// Main entry point of the application.
 ///
@@ -40,7 +46,7 @@ fn main() -> anyhow::Result<()> {
             if n > max_threads {
                 println!("⚠️ Warning: Limiting thread count to {} (max available)", max_threads);
                 max_threads
-            } else {n}
+            } else { n }
         }
         Some(_) => return Err(anyhow::anyhow!("Number of threads must be a positive integer")),
         None => {
@@ -48,14 +54,13 @@ fn main() -> anyhow::Result<()> {
             default_threads
         }
     };
-
     println!("🚀 Using {} thread(s)", effective_threads);
 
     if let Some(n) = args.threads {
         let local_pool = utils::configure_thread_pool(n)?;
-        local_pool.install(|| progress::process_files(&args.input, &args.output))?;
+        local_pool.install(|| progress::process_files(&args.input, &args.output, args.storage_format))?;
     } else {
-        progress::process_files(&args.input, &args.output)?;
+        progress::process_files(&args.input, &args.output, args.storage_format)?;
     }
 
     let duration = total_start.elapsed();
