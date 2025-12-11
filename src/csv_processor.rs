@@ -149,8 +149,12 @@ impl<'a> SOABuilder<'a> {
 ///
 /// This function reads OHLCV records from a CSV reader, parses datetime strings
 /// into Unix timestamps, and populates index collections (time, daily, timeframe).
-/// Crucially, it now accumulates the raw OHLCV data into a `Vec<ProcessedRecord>`,
+/// Crucially, it accumulates the raw OHLCV data into a `Vec<ProcessedRecord>`,
 /// which is then used by `save_flatbuffer` to create either AOS or SOA FlatBuffers.
+///
+/// The `timeframe_index` is generated to include ALL possible timeframe boundaries
+/// within the data's time range, ensuring no gaps for resampling purposes, even if
+/// some boundaries have no corresponding raw data.
 ///
 /// # Arguments
 /// * `reader` - CSV reader for input data.
@@ -181,8 +185,12 @@ fn process_csv_records<R: std::io::Read>(
         ("3m", 180),
         ("4m", 240),
         ("5m", 300),
+        ("1d", 86400),
     ];
-    
+
+    // --- Collect raw data and basic indices first ---
+    let mut all_timestamps = Vec::new(); // Collect all timestamps for min/max calculation
+
     for result in reader.deserialize::<CsvRecord>() {
         let record: CsvRecord = result?;
         let date_str = &record.date;
@@ -191,7 +199,7 @@ fn process_csv_records<R: std::io::Read>(
         let dt = chrono::NaiveDateTime::parse_from_str(&dt_str, "%Y%m%d %H%M%S")
         .map_err(|e| anyhow::anyhow!("Failed to parse datetime: {}", e))?;
         let timestamp = dt.and_utc().timestamp() as u64;
-        
+
         let processed_record = ProcessedRecord {
             timestamp,
             open: record.open,
@@ -201,13 +209,14 @@ fn process_csv_records<R: std::io::Read>(
             vol: record.vol,
         };
         raw_data.push(processed_record);
-        
+        all_timestamps.push(timestamp);
+
         // index by time
         time_index.push(index::TimeIndexEntry {
             timestamp,
             index: index_in_vector,
         });
-        
+
         //index by day
         let date_key = dt.format("%Y-%m-%d").to_string();
         if let Some(ref d) = current_day {
@@ -228,16 +237,6 @@ fn process_csv_records<R: std::io::Read>(
             day_start_index = index_in_vector;
         }
         index_in_vector += 1;
-    
-        // index by timeframes
-        for (tf_name, tf_sec) in &supported_timeframes {
-            if timestamp % tf_sec == 0 {
-                tf_index_map
-                .entry(tf_name.to_string())
-                .or_insert_with(Vec::new)
-                .push(timestamp);
-            }
-        }  
     }
 
     // last day
@@ -249,9 +248,31 @@ fn process_csv_records<R: std::io::Read>(
         });
     }
 
+    // --- Generate comprehensive timeframe indices ---
+    if !all_timestamps.is_empty() {
+        let min_ts = *all_timestamps.iter().min().unwrap();
+        let max_ts = *all_timestamps.iter().max().unwrap();
+
+        for (tf_name, tf_sec) in &supported_timeframes {
+            let start_boundary = (min_ts / tf_sec) * tf_sec; // First boundary >= min_ts
+            let end_boundary = (max_ts / tf_sec) * tf_sec;   // Last boundary <= max_ts
+
+            let mut timeframe_timestamps = Vec::new();
+            let mut current_boundary = start_boundary;
+
+            // Populate all boundaries within the range
+            while current_boundary <= end_boundary {
+                timeframe_timestamps.push(current_boundary);
+                current_boundary += tf_sec;
+            }
+
+            tf_index_map.insert(tf_name.to_string(), timeframe_timestamps);
+        }
+    }
+
     anyhow::Ok(())
 }
-    
+
 /// Converts CSV data to a FlatBuffer binary file (.bin) in AOS or SOA format and generates index data.
 ///
 /// This function orchestrates the conversion process based on the specified `storage_format`:
@@ -339,6 +360,7 @@ fn save_flatbuffer<P: AsRef<std::path::Path>>(
             soa_builder.finish_buffer()
         }
     };
+
     // --- /Create FlatBuffer Data ---
 
     // Write the generated FlatBuffer binary data to the output file
@@ -379,13 +401,13 @@ fn save_index<P: AsRef<std::path::Path>>(
     timeframe_index: &std::collections::HashMap<String, Vec<u64>>,
     output_path: P,
 ) -> anyhow::Result<()> {
-    let idx_path = output_path.as_ref().with_extension("idx");
+    let idx_path = std::path::Path::new(output_path.as_ref()).with_extension("idx");  
     let full_index = index::FullIndex {
         time_index: time_index.to_vec(),
         daily_index: daily_index.to_vec(),
         timeframe_index: timeframe_index.clone(),
     };
-    
+
     let data = bincode::serialize(&full_index)?;
     std::fs::write(idx_path, data)?;
 
@@ -413,13 +435,13 @@ pub fn convert_csv_to_flatbuffer<P: AsRef<std::path::Path>>(input_dir_path: P, o
     let processed_data = save_flatbuffer(
         input_dir_path.as_ref(),
         output_path.as_ref(),
-        storage_format,
+        storage_format.clone(),
     )?;
     save_index(
         &processed_data.time_index,
         &processed_data.daily_index,
         &processed_data.timeframe_index,
-        output_path.as_ref()
+        output_path.as_ref(),
     )?;
 
     anyhow::Ok(())

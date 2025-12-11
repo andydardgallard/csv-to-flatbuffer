@@ -80,7 +80,7 @@ impl Args {
                     .long("storage_format")
                     .help("Storage format for FlatBuffer data")
                     .value_parser(clap::value_parser!(StorageFormat))
-                    .default_value("aos")
+                    .default_value("soa")
                     .required(false)
             )
             .get_matches();
