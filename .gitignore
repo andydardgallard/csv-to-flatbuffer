@@ -1,6 +1,6 @@
 # Rust artifacts
 /target
- Cargo.lock
+Cargo.lock
  *.rs.bk
 
 # IDE and editor files
@@ -22,6 +22,7 @@
 
 # Binary output (if any)
  /csv-to-flatbuffer
+ *.exe
  /output
  /bin
 

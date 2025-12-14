@@ -46,12 +46,7 @@ flatc compiler (optional, build script handles it)
 
 ## ▶️ Usage
 
-<<<<<<< HEAD
 # Convert CSV to FlatBuffer (AOS format)
-=======
-### Convert CSV to FlatBuffer (AOS format)
-
->>>>>>> main
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -59,11 +54,7 @@ cargo run --release -- \
   -t 8 \
   --storage-format aos
 
-<<<<<<< HEAD
 # Convert CSV to FlatBuffer (SOA format)
-=======
-### Convert CSV to FlatBuffer (SOA format)
->>>>>>> main
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
@@ -71,18 +62,13 @@ cargo run --release -- \
   -t 8 \
   --storage-format soa
 
-<<<<<<< HEAD
 # Convert + Read + Resample (AOS)
-=======
-### Convert + Read + Resample (AOS)
->>>>>>> main
 ```bash
 cargo run --release -- \
   -i /path/to/csv/dir \
   -o /path/to/output.bin \
   -t 8 \
   --storage-format aos \
-<<<<<<< HEAD
   -c \
   -r 5min
 
@@ -93,8 +79,6 @@ cargo run --release -- \
   -o /path/to/output.bin \
   -t 8 \
   --storage-format soa \
-=======
->>>>>>> main
   -c \
   -r 5min
 
@@ -161,19 +145,11 @@ VOL: u64 volume
 ## 🗂 File Structure
 
 After conversion:
-<<<<<<< HEAD
-=======
-
->>>>>>> main
 output/
 ├── filename.aos.bin  ← FlatBuffer binary (OHLCVList) - AOS format
 ├── filename.aos.idx  ← Bincode-serialized FullIndex
 ├── filename.soa.bin  ← FlatBuffer binary (OHLCVListSOA) - SOA format
 └── filename.soa.idx  ← Bincode-serialized FullIndex
-<<<<<<< HEAD
-=======
-
->>>>>>> main
 
 .idx contains:
 
@@ -225,11 +201,8 @@ timeframe_index: [timestamps] for every N-minute bar
 Use .bin + .idx files in your event-driven backtester:
 
 Load only needed days
-<<<<<<< HEAD
 Resample on-demand (AOS or SOA)
 Ultra-low-latency bar updates
-=======
->>>>>>> main
 
 ---
 
